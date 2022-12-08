@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+    blockscout.db:
+        image: postgres:12.5
+        container_name: blockscout.db
+        hostname: blockscout.db
+        environment: 
+        - POSTGRES_HOST_AUTH_METHOD=trust
+    
+    blockscout:
+        image: klenik/blockscout
+        container_name: blockscout
+        hostname: blockscout
+        environment: 
+        - ETHEREUM_JSONRPC_VARIANT=ganache
+        - ETHEREUM_JSONRPC_HTTP_URL=geth.node:8545
+        - ETHEREUM_JSONRPC_TRANSPORT=http
+        - BLOCKSCOUT_HOST=0.0.0.0
+        - BLOCKSCOUT_PROTOCOL=http
+        - DATABASE_URL=postgresql://postgres:@blockscout.db:5432/explorer?ssl=false
+        - MIX_ENV=prod
+        ports:
+        - 4000:4000
+        command: /bin/sh -c "mix do ecto.create, ecto.migrate && mix phx.server"
+        depends_on:
+        - blockscout.db
+    geth.node:
+      image: trufflesuite/ganache:latest
+      ports:
+      - 8545:8545
+      volumes:
+      - ./ganache_data:/ganache_data
+      entrypoint:
+      - node
+      - /app/dist/node/cli.js
+      - --deterministic
+      - --db=/ganache_data
+      - --hostname
+      - '0.0.0.0'
+    chorchain.db:
+        image: mongo:latest
+        container_name: chorchain.db
+        hostname: chorchain.db
+    chorchain:
+        image: chorchain:latest
+        container_name: chorchain
+        hostname: chorchain
+        ports:
+        - 8080:8080
+        volumes:
+        - ./chorchain/src/com/unicam/:/root/chorchain
+        environment: 
+        - ChorChain=/root/chorchain
+        depends_on:
+        - chorchain.db
+        - geth.node
